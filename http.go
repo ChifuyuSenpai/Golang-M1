@@ -15,3 +15,5 @@ func main() {
 	log.Print("Listening on port 8080")
 	http.ListenAndServe(":8080", nil)
 }
+
+// Output: Hello, World! (at http://localhost:8080/Hello)
