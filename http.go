@@ -10,11 +10,12 @@ import (
 func main() {
 	http.HandleFunc("/hello", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Hello, World!")
+		http.HandleFunc("/user", createUser)
 
 	})
 
-	log.Print("Listening on port 8080")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
+	log.Print("Listening on port 8443")
+	if err := http.ListenAndServeTLS(":8443", "localhost.pem", "localhost-key.pem", nil); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -30,6 +31,9 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	sendJSONResponse(w, user)
 }
-
-// Output: Hello, World! (at http://localhost:8080/Hello)
+func sendJSONResponse(w http.ResponseWriter, data any) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(data)
+}
