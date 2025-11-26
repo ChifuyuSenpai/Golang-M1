@@ -7,13 +7,12 @@ import (
 )
 
 func main() {
-	http.HandleFunc("/Hello", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/hello", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Hello, World!")
-
 	})
 
 	log.Print("Listening on port 8080")
-	http.ListenAndServe(":8080", nil)
+	if err := http.ListenAndServe(":8080", nil); err != nil {
+		log.Fatal(err)
+	}
 }
-
-// Output: Hello, World! (at http://localhost:8080/Hello)
