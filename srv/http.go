@@ -1,4 +1,4 @@
-package main
+package srv
 
 import (
 	"encoding/json"
@@ -27,8 +27,9 @@ type User struct {
 func createUser(w http.ResponseWriter, r *http.Request) {
 	var user User
 	err := json.NewDecoder(r.Body).Decode(&user)
+	fmt.Println("User :", user.Name)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest) // 400 Bad Request (trouvé via IA)
 		return
 	}
 	sendJSONResponse(w, user)
