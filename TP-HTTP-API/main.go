@@ -8,41 +8,27 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/c9s/goprocinfo/linux" // Library utilisée pour lire les infos CPU dans /proc/stat vu que Go n'a pas de package natif pour ça
+	"github.com/c9s/goprocinfo/linux"
 )
 
-// Depuis le usage repo GitHub
-stat, err := linuxproc.ReadStat("/proc/stat")
-if err != nil {
-log.Fatal("stat read fail")
-}
-
-for _, s := range stat.CPUStats {
-// s.User
-// s.Nice
-// s.System
-// s.Idle
-// s.IOWait
-}
-
+var startTime = time.Now()
 
 type HealthResponse struct {
-	Time             string  `json:"time"`
-	Hostname         string  `json:"hostname"`
-	PID              int     `json:"pid"`
-	Status           string  `json:"status"`
-	GoVersion        string  `json:"go_version"`
-	MemoryUsage      uint64  `json:"memory_usage"`
-	MemoryAlloc      uint64  `json:"memory_alloc"`
-	MemoryTotalAlloc uint64  `json:"memory_total_alloc"`
-	CPUUsage         float64 `json:"cpu_usage"`
-	CPUCores         int     `json:"cpu_cores"`
-	// Stats pour calculer le usage CPU
-	CPUUser          uint64 `json:"cpu_user"`
-	CPUSystem        uint64 `json:"cpu_system"`
-	CPUIdle          uint64 `json:"cpu_idle"`
+	Time          string  `json:"time"`
+	Hostname      string  `json:"hostname"`
+	PID           int     `json:"pid"`
+	Status        string  `json:"status"`
+	GoVersion     string  `json:"go_version"`
+	Uptime        string  `json:"uptime"`
+	MemoryUsageMB uint64  `json:"memory_usage_mb"`
+	MemoryAllocMB uint64  `json:"memory_alloc_mb"`
+	MemoryTotalMB uint64  `json:"memory_total_mb"`
+	CPUUsage      float64 `json:"cpu_usage_percent"`
+	CPUCores      int     `json:"cpu_cores"`
+	CPUUser       uint64  `json:"cpu_user"`
+	CPUSystem     uint64  `json:"cpu_system"`
+	CPUIdle       uint64  `json:"cpu_idle"`
 }
-
 
 func main() {
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -50,68 +36,52 @@ func main() {
 		if err != nil {
 			hostname = "unknown"
 		}
+
 		var m runtime.MemStats
 		runtime.ReadMemStats(&m)
 
-		stat, err:= linuxproc.ReadStat("/proc/stat")
-		if err != nil {
-			log.Fatal("stat read fail")
-		}
+		uptime := time.Since(startTime).Round(time.Second).String()
+
 		var CPUUsage float64
 		var CPUUser, CPUSystem, CPUIdle uint64
 
-		if stat != nil && len(stat.CPUStatAll.CPUStats) > 0 {
-			cpuStat := stat.CPUStatAll.CPUStats[0] // CPU total
+		stat, err := linux.ReadStat("/proc/stat")
+		if err != nil {
+			log.Printf("Error reading CPU stats: %v", err)
+		} else if len(stat.CPUStats) > 0 {
+			cpuStat := stat.CPUStats[0]
 			total := cpuStat.User + cpuStat.Nice + cpuStat.System + cpuStat.Idle + cpuStat.IOWait + cpuStat.IRQ + cpuStat.SoftIRQ + cpuStat.Steal
 			idle := cpuStat.Idle + cpuStat.IOWait
-			CPUUsage = float64(total-idle) / float64(total) * 100.0
+
+			if total > 0 {
+				CPUUsage = float64(total-idle) / float64(total) * 100.0
+			}
+
 			CPUUser = cpuStat.User
 			CPUSystem = cpuStat.System
 			CPUIdle = cpuStat.Idle
-
-			total := cpuStat.User + cpuStat.Nice + cpuStat.System + cpuStat.Idle + cpuStat.IOWait + cpuStat.IRQ + cpuStat.SoftIRQ + cpuStat.Steal
-			if total > 0 {
-				CPUUsage = float64(total-idle) / float64(total) * 100.0
-			} else {
-				CPUUsage = "Error"
-			}
 		}
 
 		response := HealthResponse{
-			Time:             time.Now().Format(time.DateTime),
-			Hostname:         hostname,
-			PID:              os.Getpid(),
-			Status:           "OK",
-			GoVersion:        runtime.Version(),
-			MemoryUsage:      m.Alloc / 1024 / 1024,
-			MemoryAlloc:      m.TotalAlloc / 1024 / 1024,
-			MemoryTotalAlloc: m.Sys / 1024 / 1024,
-			CPUUsage: 	   CPUUsage,
-			CPUCores:         runtime.NumCPU(),
-			CPUUser:          CPUUser,
-			CPUSystem:        CPUSystem,
-			CPUIdle:          CPUIdle,
+			Time:          time.Now().Format(time.DateTime),
+			Hostname:      hostname,
+			PID:           os.Getpid(),
+			Status:        "OK",
+			GoVersion:     runtime.Version(),
+			Uptime:        uptime,
+			MemoryUsageMB: m.Alloc / 1024 / 1024,
+			MemoryAllocMB: m.TotalAlloc / 1024 / 1024,
+			MemoryTotalMB: m.Sys / 1024 / 1024,
+			CPUUsage:      CPUUsage,
+			CPUCores:      runtime.NumCPU(),
+			CPUUser:       CPUUser,
+			CPUSystem:     CPUSystem,
+			CPUIdle:       CPUIdle,
 		}
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(response)
-
-		//////////////////
-		// Premier try en front sans json
-		//pid := os.Getpid()
-		////response := fmt.Fprintf("Hostname: " + hostname + " | PID: " + string(rune(pid)) + " | Status: OK"), 2éme try
-		//response := fmt.Sprintf("Time: %s | Hostname: %s | PID: %d | Status: OK", // \ IA
-		//	time.Now().Format(time.DateTime),
-		//	hostname,
-		//	pid)
-		//
-		//w.Write([]byte(response))
-
-		//w.Write([]byte(time.Now().Format(time.DateTime))) // 1er try
-		//w.Write([]byte(" Status : OK"))
-		//
-		///////////////////
-
 	})
 
 	log.Print("Service UP » Listening on port 8443 !")
