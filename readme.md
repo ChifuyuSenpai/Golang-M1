@@ -1,4 +1,3 @@
-Voici un README complet pour votre projet :
 
 ```markdown
 # TP-HTTP-API - Service de Health Check
