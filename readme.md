@@ -1,6 +1,4 @@
-Voici un README complet pour votre projet :
 
-```markdown
 # TP-HTTP-API - Service de Health Check
 
 API REST en Go fournissant des informations de santé système (health check) avec métriques CPU, mémoire et uptime.
